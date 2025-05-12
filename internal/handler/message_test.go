@@ -13,35 +13,65 @@ import (
 )
 
 func TestMessageHandler_AddMessage(t *testing.T) {
-	t.Run("", func(t *testing.T) {
-		mockRepo := mocks.NewMessageGateway(t)
-		handlerUnderTest := NewMessageHandler(mockRepo)
+	t.Run("Group: Post", func(t *testing.T) {
+		t.Run("Should create message When sent correct post", func(t *testing.T) {
+			msg := model.Message{
+				Text: "message",
+			}
+			body, _ := json.Marshal(msg)
+			messageGatewayMock := mocks.NewMessageGateway(t)
+			handler := NewMessageHandler(messageGatewayMock)
 
-		msg := model.Message{Text: "Hello, World!"}
-		body, _ := json.Marshal(msg)
+			messageGatewayMock.EXPECT().Add(msg)
 
-		// Espera que Add seja chamado com a mensagem correta
-		mockRepo.EXPECT().Add(msg).Times(1)
+			r := httptest.NewRequest(http.MethodPost, "/message", bytes.NewReader(body))
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, r)
 
-		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
-		w := httptest.NewRecorder()
+			assert.Equal(t, http.StatusCreated, w.Code)
+		})
+		t.Run("Should return bad request When payload is invalid", func(t *testing.T) {
+			messageGatewayMock := mocks.NewMessageGateway(t)
+			handler := NewMessageHandler(messageGatewayMock)
+			r := httptest.NewRequest(http.MethodPost, "/message", bytes.NewBufferString("{invalid json}"))
+			w := httptest.NewRecorder()
 
-		handlerUnderTest.ServeHTTP(w, req)
+			handler.ServeHTTP(w, r)
 
-		assert.Equal(t, http.StatusCreated, w.Code)
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Equal(t, w.Body.String(), "Invalid message\n")
+		})
 	})
 
-	t.Run("Should create message When sent correct post", func(t *testing.T) {
-		messageGatewayMock := mocks.NewMessageGateway(t)
-		handler := NewMessageHandler(messageGatewayMock)
+	t.Run("Group: Get", func(t *testing.T) {
+		t.Run("Should return all messages When get request is successful", func(t *testing.T) {
+			expectedMessage := []model.Message{
+				{Text: "Hello"},
+				{Text: "World"},
+			}
+			messageGatewayMock := mocks.NewMessageGateway(t)
+			handler := NewMessageHandler(messageGatewayMock)
+			r := httptest.NewRequest(http.MethodGet, "/message", nil)
+			w := httptest.NewRecorder()
 
-		msg := model.Message{
-			Text: "message",
-		}
-		body, _ := json.Marshal(msg)
+			messageGatewayMock.EXPECT().GetAll().Return(expectedMessage).Times(1)
 
-		r := httptest.NewRequest(http.MethodPost, "/message", bytes.NewReader(body))
+			handler.ServeHTTP(w, r)
+
+			var result []model.Message
+			err := json.Unmarshal(w.Body.Bytes(), &result)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedMessage, result)
+		})
+	})
+
+	t.Run("Should return invalid method When not using implemented methods", func(t *testing.T) {
+		handler := NewMessageHandler(nil)
+		r := httptest.NewRequest(http.MethodPut, "/message", nil)
 		w := httptest.NewRecorder()
+
 		handler.ServeHTTP(w, r)
+
+		assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
 	})
 }

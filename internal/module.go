@@ -5,6 +5,7 @@ import (
 	"github.com/krakatoa/go-project-start-template/internal/handler"
 	"github.com/krakatoa/go-project-start-template/internal/repository"
 	"github.com/krakatoa/go-project-start-template/internal/server"
+	"github.com/krakatoa/go-project-start-template/internal/server/middleware"
 	"go.uber.org/fx"
 )
 
@@ -17,6 +18,7 @@ var Module = fx.Options(
 		repository.NewMessageRepository,
 		handler.NewHealthHandler,
 		newMessageHandler,
+		middleware.ApplyMidleware,
 	),
 	fx.Invoke(
 		server.RegisterRoutes,

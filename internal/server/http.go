@@ -20,14 +20,22 @@ func RegisterRoutes(mux *http.ServeMux, healthHandler http.Handler, messageHandl
 	mux.Handle("/message", messageHandler)
 }
 
-func StartServer(lc fx.Lifecycle, mux *http.ServeMux, appConfig *config.AppConfig) {
-	addrs := fmt.Sprintf(":%s", appConfig.Port)
+type ServerParams struct {
+	fx.In
+
+	Lc        fx.Lifecycle
+	Handler   http.Handler `name:"appHandler"`
+	AppConfig *config.AppConfig
+}
+
+func StartServer(sp ServerParams) {
+	addrs := fmt.Sprintf(":%s", sp.AppConfig.Port)
 	srv := &http.Server{
 		Addr:    addrs,
-		Handler: mux,
+		Handler: sp.Handler,
 	}
 
-	lc.Append(fx.Hook{
+	sp.Lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
 				log.Println("Starting server on port: ", addrs)
